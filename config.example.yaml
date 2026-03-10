@@ -10,6 +10,14 @@ jira:
   pat: ""
   default_project: "MYPROJ"
   username: "your.email@example.com"
+  # Default fields merged into every jira_create_ticket call (config defaults → extra_fields → named params)
+  default_fields: {}
+  # Example:
+  #   default_fields:
+  #     components:
+  #       - name: "MyComponent"
+  #     assignee:
+  #       name: "your.email@example.com"
 
 # Confluence Server connection
 confluence:
