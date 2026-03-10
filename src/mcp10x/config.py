@@ -31,6 +31,7 @@ class ConfluenceConfig:
     base_url: str = ""
     pat: str = ""
     default_spaces: list[str] = field(default_factory=list)
+    title_filters: list[str] = field(default_factory=list)
     tech_doc_template: TechDocTemplate = field(default_factory=TechDocTemplate)
 
 

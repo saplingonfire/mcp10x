@@ -86,13 +86,32 @@ class ConfluenceClient:
 
     # -- public API --
 
-    def search(self, cql: str, space_key: str | None = None, max_results: int = 10) -> str:
+    def search(
+        self,
+        cql: str,
+        space_key: str | None = None,
+        title_filter: str | None = None,
+        max_results: int = 10,
+    ) -> str:
+        clauses: list[str] = [f"({cql})"]
+
         if space_key:
-            cql = f'space = "{space_key}" AND ({cql})'
-        elif not space_key and self._cfg.default_spaces:
+            clauses.append(f'space = "{space_key}"')
+        elif self._cfg.default_spaces:
             space_clause = " OR ".join(f'space = "{s}"' for s in self._cfg.default_spaces)
-            cql = f'({space_clause}) AND ({cql})'
-        results = self._client.cql(cql, limit=max_results)
+            clauses.append(f"({space_clause})")
+
+        title_terms = []
+        if title_filter:
+            title_terms.append(title_filter)
+        if self._cfg.title_filters:
+            title_terms.extend(self._cfg.title_filters)
+        if title_terms:
+            title_clause = " OR ".join(f'title ~ "{t}"' for t in title_terms)
+            clauses.append(f"({title_clause})")
+
+        final_cql = " AND ".join(clauses)
+        results = self._client.cql(final_cql, limit=max_results)
         pages = results.get("results", [])
         if not pages:
             return "No pages found."
@@ -187,9 +206,14 @@ def register_confluence_tools(mcp: Any, client: ConfluenceClient) -> None:
     """Register all Confluence MCP tools on the FastMCP server instance."""
 
     @mcp.tool()
-    def confluence_search(cql: str, space_key: str | None = None, max_results: int = 10) -> str:
-        """Search Confluence pages using CQL. If no space_key given, searches configured default spaces."""
-        return client.search(cql=cql, space_key=space_key, max_results=max_results)
+    def confluence_search(
+        cql: str,
+        space_key: str | None = None,
+        title_filter: str | None = None,
+        max_results: int = 10,
+    ) -> str:
+        """Search Confluence pages using CQL. If no space_key given, searches configured default spaces. Use title_filter to narrow results to pages whose title contains a keyword (e.g. '[ACR]')."""
+        return client.search(cql=cql, space_key=space_key, title_filter=title_filter, max_results=max_results)
 
     @mcp.tool()
     def confluence_get_page(
