@@ -1,0 +1,38 @@
+# MCP10x Configuration
+# See README.md for full documentation.
+
+# Jira Server connection
+jira:
+  enabled: true
+  base_url: "https://jira.internal.example.com"
+  # PAT can be set here or via MCP10X_JIRA_PAT env var (env var takes precedence)
+  pat: ""
+  default_project: "MYPROJ"
+  username: "john.doe"
+
+# Confluence Server connection
+confluence:
+  enabled: true
+  base_url: "https://confluence.internal.example.com"
+  # PAT can be set here or via MCP10X_CONFLUENCE_PAT env var (env var takes precedence)
+  pat: ""
+  default_spaces: ["TEAM", "ARCH", "DOCS"]
+  tech_doc_template:
+    sections: ["Overview", "Architecture", "API", "Testing", "Deployment"]
+    default_space: "DOCS"
+
+# Coding style rules
+rules:
+  rules_dir: "rules"
+  categories:
+    - code_style
+    - architecture
+    - libraries
+    - code_review
+    - testing
+  primary_language: "go"
+  additional_languages: ["typescript", "python"]
+
+# Session context
+context:
+  file_path: ".context.yaml"
