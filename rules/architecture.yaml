@@ -1,7 +1,3 @@
 category: architecture
-last_updated: '2026-03-10T02:58:30.692781+00:00'
-rules:
-- id: arch-001
-  rule: Separate client from tools
-  rationale: Testability
-  added: '2026-03-10'
+last_updated: ''
+rules: []

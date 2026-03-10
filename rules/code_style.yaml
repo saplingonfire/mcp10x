@@ -1,13 +1,22 @@
 category: code_style
-last_updated: '2026-03-10T02:58:30.695685+00:00'
+last_updated: '2026-03-10T03:30:00.000000+00:00'
 rules:
 - id: cs-001
-  rule: Use table-driven tests
-  rationale: Better test organization
+  rule: >-
+    Use conventional commit prefixes in commit titles:
+    feat: (new feature),
+    fix: (bug fix),
+    refactor: (restructuring without behavior change),
+    docs: (documentation only),
+    test: (adding or updating tests),
+    chore: (build, CI, tooling, dependencies),
+    style: (formatting, whitespace, no logic change),
+    perf: (performance improvement),
+    ci: (CI/CD pipeline changes),
+    revert: (reverting a previous commit).
+    Format: "<prefix>: <lowercase imperative summary>".
+    Omit the prefix only for the initial commit.
+  rationale: >-
+    Conventional commits enable automated changelogs, semantic versioning,
+    and make git history scannable at a glance.
   added: '2026-03-10'
-  language: go
-- id: cs-002
-  rule: Prefer named returns only when helpful
-  rationale: Avoid naked returns
-  added: '2026-03-10'
-  language: go
