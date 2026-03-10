@@ -5,7 +5,7 @@ alwaysApply: true
 ---
 # MCP10x — AI Agent Behavior Guide
 
-You have access to the **mcp10x** MCP server which provides Jira, Confluence, coding rules, decision logging, and session context tools.
+You have access to the **mcp10x** MCP server which provides Jira, Confluence, GitLab, coding rules, decision logging, and session context tools.
 
 ## Session Startup
 
@@ -41,10 +41,19 @@ You have access to the **mcp10x** MCP server which provides Jira, Confluence, co
 - When an architectural or design decision is made, immediately call `decisions_log` with alternatives considered. Do not wait to be asked.
 - Before adding a rule or decision, call `rules_search` to check if a similar rule already exists. Update via `rules_update` instead of creating duplicates.
 
+## Working with Merge Requests
+
+- Use `gitlab_create_mr` to create a new MR from the current branch. If `default_project` is configured, omit the `project` parameter.
+- Use `gitlab_list_mrs` to see open MRs before creating a new one (avoid duplicates).
+- Use `gitlab_mr_diff` to review changes in an MR before adding comments.
+- Use `gitlab_add_mr_comment` to post review feedback or status updates.
+- For quick MR references encountered in text (e.g. `!42` or a GitLab URL), use `gitlab_resolve_link`.
+
 ## Link Resolution
 
 - When encountering a Jira ticket key (e.g. `PROJ-123`) in text, use `jira_resolve_link` for quick context.
 - When encountering a Confluence URL or page ID, use `confluence_resolve_link` for quick context.
+- When encountering a GitLab MR reference (e.g. `!42`) or URL, use `gitlab_resolve_link` for quick context.
 
 ## Session Context
 

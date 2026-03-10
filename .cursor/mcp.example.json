@@ -6,7 +6,8 @@
       "env": {
         "PYTHONPATH": "/absolute/path/to/mcp10x/src",
         "MCP10X_JIRA_PAT": "",
-        "MCP10X_CONFLUENCE_PAT": ""
+        "MCP10X_CONFLUENCE_PAT": "",
+        "MCP10X_GITLAB_PAT": ""
       }
     }
   }

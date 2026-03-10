@@ -32,6 +32,14 @@ confluence:
     sections: ["Overview", "Architecture", "API", "Testing", "Deployment"]
     default_space: "DOCS"
 
+# GitLab Server connection
+gitlab:
+  enabled: true
+  base_url: "https://gitlab.example.com"
+  # PAT can be set here or via MCP10X_GITLAB_PAT env var (env var takes precedence)
+  pat: ""
+  default_project: ""  # e.g. "group/project" or numeric project ID
+
 # Coding style rules
 rules:
   rules_dir: "rules"
