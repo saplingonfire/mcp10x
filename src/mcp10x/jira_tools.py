@@ -165,8 +165,130 @@ class JiraClient:
         issue = self._client.issue(ticket_key)
         return self._format_issue(issue, brief=True)
 
+    def enhance_ticket(
+        self,
+        ticket_key: str,
+        *,
+        confluence_client: Any | None = None,
+        rules_store: Any | None = None,
+    ) -> str:
+        """Gather full context for a ticket and return it alongside the current
+        description so the agent can produce an enriched version and update it."""
+        issue = self._client.issue(ticket_key, expand="renderedFields")
+        fields = issue.get("fields", {})
+        key = issue.get("key", ticket_key)
+        summary = fields.get("summary", "")
+        description = fields.get("description") or ""
+        issue_type = (fields.get("issuetype") or {}).get("name", "")
+        priority = (fields.get("priority") or {}).get("name", "")
+        labels = fields.get("labels", [])
+        components = [c.get("name", "") for c in (fields.get("components") or [])]
 
-def register_jira_tools(mcp: Any, client: JiraClient) -> None:
+        # Linked issues
+        linked: list[str] = []
+        for link in fields.get("issuelinks", []):
+            if "outwardIssue" in link:
+                li = link["outwardIssue"]
+                rel = link.get("type", {}).get("outward", "relates to")
+                linked.append(f"- {rel} [{li['key']}]: {li.get('fields', {}).get('summary', '')}")
+            if "inwardIssue" in link:
+                li = link["inwardIssue"]
+                rel = link.get("type", {}).get("inward", "relates to")
+                linked.append(f"- {rel} [{li['key']}]: {li.get('fields', {}).get('summary', '')}")
+
+        # Comments (last 5 for context)
+        comments_data = fields.get("comment", {}).get("comments", [])
+        recent_comments = comments_data[-5:] if comments_data else []
+        comment_lines = [
+            f"- **{c.get('author', {}).get('displayName', '?')}** ({c.get('created', '')[:10]}): "
+            f"{(c.get('body', ''))[:200]}"
+            for c in recent_comments
+        ]
+
+        # Subtasks
+        subtasks = fields.get("subtasks", [])
+        subtask_lines = [
+            f"- [{st['key']}] {st.get('fields', {}).get('summary', '')} "
+            f"({st.get('fields', {}).get('status', {}).get('name', '')})"
+            for st in subtasks
+        ]
+
+        # Confluence context
+        confluence_context = ""
+        if confluence_client:
+            try:
+                search_terms = [key]
+                if components:
+                    search_terms.extend(components)
+                cql = " OR ".join(f'text ~ "{t}"' for t in search_terms)
+                confluence_context = confluence_client.search(cql=cql, max_results=5)
+            except Exception:
+                confluence_context = "(Confluence search unavailable)"
+
+        # Applicable coding rules
+        rules_context = ""
+        if rules_store:
+            try:
+                arch = rules_store.get_by_category("architecture")
+                style = rules_store.get_by_category("code_style")
+                rules_context = f"{arch}\n\n{style}"
+            except Exception:
+                rules_context = "(Rules unavailable)"
+
+        sections = [
+            f"# Enhance Ticket: {key}",
+            "",
+            f"**Summary**: {summary}",
+            f"**Type**: {issue_type}  |  **Priority**: {priority}",
+            f"**Labels**: {', '.join(labels) or '(none)'}",
+            f"**Components**: {', '.join(components) or '(none)'}",
+            "",
+            "## Current Description",
+            description if description else "(empty — no description yet)",
+        ]
+
+        if linked:
+            sections.extend(["", "## Linked Issues", *linked])
+
+        if subtask_lines:
+            sections.extend(["", "## Subtasks", *subtask_lines])
+
+        if comment_lines:
+            sections.extend(["", "## Recent Comments", *comment_lines])
+
+        if confluence_context:
+            sections.extend(["", "## Related Confluence Pages", confluence_context])
+
+        if rules_context:
+            sections.extend(["", "## Applicable Coding Rules", rules_context])
+
+        sections.extend([
+            "",
+            "## Instructions",
+            "",
+            "Based on all the context above, write an improved and detailed ticket "
+            "description that includes:",
+            "- A clear problem statement or objective",
+            "- Acceptance criteria as a checklist",
+            "- Technical context (affected components, relevant architecture)",
+            "- Any constraints or dependencies from linked issues",
+            "- References to related documentation",
+            "",
+            "Preserve any useful information from the current description. "
+            "Then call `jira_update_ticket` with the ticket key and "
+            '`{"description": "<your enhanced description>"}` to apply the update.',
+        ])
+
+        return "\n".join(sections)
+
+
+def register_jira_tools(
+    mcp: Any,
+    client: JiraClient,
+    *,
+    confluence_client: Any | None = None,
+    rules_store: Any | None = None,
+) -> None:
     """Register all Jira MCP tools on the FastMCP server instance."""
 
     @mcp.tool()
@@ -243,3 +365,14 @@ def register_jira_tools(mcp: Any, client: JiraClient) -> None:
     def jira_resolve_link(ticket_key: str) -> str:
         """Get a concise one-line summary of a Jira ticket. Use this when you encounter a ticket key in text and need quick context."""
         return client.resolve_link(ticket_key)
+
+    @mcp.tool()
+    def jira_enhance_ticket(ticket_key: str) -> str:
+        """Retrieve a Jira ticket and gather full workspace context (linked issues,
+        comments, subtasks, Confluence docs, coding rules) to produce an enriched
+        description. Review the output, then call jira_update_ticket to apply it."""
+        return client.enhance_ticket(
+            ticket_key,
+            confluence_client=confluence_client,
+            rules_store=rules_store,
+        )

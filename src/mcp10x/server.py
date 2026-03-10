@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
 import yaml
 from fastmcp import FastMCP
@@ -22,13 +21,11 @@ def build_server(cfg: AppConfig) -> FastMCP:
         """Inspect the active MCP10x configuration (secrets redacted)."""
         return yaml.dump(cfg.redacted(), default_flow_style=False, sort_keys=False)
 
-    # -- Jira --
-    jira_client = None
-    if cfg.jira.enabled and cfg.jira.base_url and cfg.jira.pat:
-        from mcp10x.jira_tools import JiraClient, register_jira_tools
+    # -- Rules (initialized early so Jira can reference them) --
+    from mcp10x.rules_tools import RulesStore, register_rules_tools
 
-        jira_client = JiraClient(cfg)
-        register_jira_tools(mcp, jira_client)
+    rules_store = RulesStore(cfg)
+    register_rules_tools(mcp, rules_store)
 
     # -- Confluence --
     confluence_client = None
@@ -38,11 +35,17 @@ def build_server(cfg: AppConfig) -> FastMCP:
         confluence_client = ConfluenceClient(cfg)
         register_confluence_tools(mcp, confluence_client)
 
-    # -- Rules --
-    from mcp10x.rules_tools import RulesStore, register_rules_tools
+    # -- Jira --
+    jira_client = None
+    if cfg.jira.enabled and cfg.jira.base_url and cfg.jira.pat:
+        from mcp10x.jira_tools import JiraClient, register_jira_tools
 
-    rules_store = RulesStore(cfg)
-    register_rules_tools(mcp, rules_store)
+        jira_client = JiraClient(cfg)
+        register_jira_tools(
+            mcp, jira_client,
+            confluence_client=confluence_client,
+            rules_store=rules_store,
+        )
 
     # -- Decisions --
     from mcp10x.decisions_tools import DecisionStore, register_decisions_tools

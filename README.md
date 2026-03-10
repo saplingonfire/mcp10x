@@ -28,12 +28,12 @@ The `.cursor/mcp.json` file is pre-configured. Fill in your PATs in the `env` se
 
 ## What's Included
 
-### Tools (34 total)
+### Tools (35 total)
 
 | Group | Count | Tools |
 |-------|-------|-------|
 | Config | 1 | `config_get` |
-| Jira | 11 | `jira_get_my_tickets`, `jira_search`, `jira_get_ticket`, `jira_create_ticket`, `jira_update_ticket`, `jira_add_comment`, `jira_transition_ticket`, `jira_log_work`, `jira_get_sprint`, `jira_get_board`, `jira_resolve_link` |
+| Jira | 12 | `jira_get_my_tickets`, `jira_search`, `jira_get_ticket`, `jira_create_ticket`, `jira_update_ticket`, `jira_add_comment`, `jira_transition_ticket`, `jira_log_work`, `jira_get_sprint`, `jira_get_board`, `jira_resolve_link`, `jira_enhance_ticket` |
 | Confluence | 7 | `confluence_search`, `confluence_get_page`, `confluence_create_page`, `confluence_update_page`, `confluence_list_spaces`, `confluence_get_page_children`, `confluence_resolve_link` |
 | Rules | 10 | `rules_list_categories`, `rules_get_by_category`, `rules_get_by_language`, `rules_get_all`, `rules_add`, `rules_update`, `rules_remove`, `rules_search`, `rules_export`, `rules_import` |
 | Decisions | 2 | `decisions_log`, `decisions_search` |
