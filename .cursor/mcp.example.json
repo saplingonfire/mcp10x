@@ -1,10 +1,10 @@
 {
   "mcpServers": {
     "mcp10x": {
-      "command": "/path/to/mcp10x/.venv/bin/python",
-      "args": ["-m", "mcp10x", "--config", "./config.yaml"],
+      "command": "/absolute/path/to/mcp10x/.venv/bin/python",
+      "args": ["-m", "mcp10x", "--config", "/absolute/path/to/mcp10x/config.yaml"],
       "env": {
-        "PYTHONPATH": "./src",
+        "PYTHONPATH": "/absolute/path/to/mcp10x/src",
         "MCP10X_JIRA_PAT": "",
         "MCP10X_CONFLUENCE_PAT": ""
       }
