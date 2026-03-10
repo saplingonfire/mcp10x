@@ -10,9 +10,12 @@ venv/
 .env
 .context.yaml
 
-# Cursor IDE — ignore everything except mcp.json and custom rules
+# User-specific config (contains secrets) — use *.example.* as templates
+config.yaml
+
+# Cursor IDE — ignore everything except example config and custom rules
 .cursor/*
+!.cursor/mcp.example.json
 !.cursor/rules/
 .cursor/rules/*
 !.cursor/rules/mcp10x.mdc
-.cursor/mcp.json

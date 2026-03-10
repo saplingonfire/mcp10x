@@ -1,22 +1,25 @@
 # MCP10x Configuration
+# Copy this file to config.yaml and fill in your values.
 # See README.md for full documentation.
 
 # Jira Server connection
 jira:
   enabled: true
-  base_url: "https://jira.internal.example.com"
+  base_url: "https://jira.example.com"
   # PAT can be set here or via MCP10X_JIRA_PAT env var (env var takes precedence)
   pat: ""
   default_project: "MYPROJ"
-  username: "john.doe"
+  username: "your.email@example.com"
 
 # Confluence Server connection
 confluence:
   enabled: true
-  base_url: "https://confluence.internal.example.com"
+  base_url: "https://confluence.example.com"
   # PAT can be set here or via MCP10X_CONFLUENCE_PAT env var (env var takes precedence)
   pat: ""
-  default_spaces: ["TEAM", "ARCH", "DOCS"]
+  default_spaces: ["TEAM", "DOCS"]
+  # Title prefixes/keywords to auto-filter searches (e.g. "[ACR]", "[RFC]")
+  title_filters: []
   tech_doc_template:
     sections: ["Overview", "Architecture", "API", "Testing", "Deployment"]
     default_space: "DOCS"

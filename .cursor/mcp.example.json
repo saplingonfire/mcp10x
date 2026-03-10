@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "mcp10x": {
-      "command": "python",
+      "command": "/path/to/mcp10x/.venv/bin/python",
       "args": ["-m", "mcp10x", "--config", "./config.yaml"],
       "env": {
         "PYTHONPATH": "./src",
