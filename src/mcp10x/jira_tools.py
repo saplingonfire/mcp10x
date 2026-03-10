@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from atlassian import Jira
+from pydantic import ValidationError
 
 from mcp10x.config import AppConfig
+from mcp10x.schemas import validate_jira_update_fields
 
 
 class JiraClient:
@@ -108,7 +110,11 @@ class JiraClient:
         return f"Created [{key}]({self._ticket_url(key)})"
 
     def update_ticket(self, ticket_key: str, fields: dict[str, Any]) -> str:
-        self._client.update_issue_field(ticket_key, fields)
+        try:
+            validated = validate_jira_update_fields(fields)
+        except ValidationError as e:
+            return f"Validation error in fields: {e}"
+        self._client.update_issue_field(ticket_key, validated.model_dump(exclude_none=True))
         return f"Updated [{ticket_key}]({self._ticket_url(ticket_key)})"
 
     def add_comment(self, ticket_key: str, comment: str) -> str:

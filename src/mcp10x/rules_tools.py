@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from mcp10x.config import AppConfig
+from mcp10x.schemas import RuleEntry, validate_rule_category_file, validate_rule_entry
 
 # Mapping from category name to ID prefix
 _CATEGORY_PREFIXES: dict[str, str] = {
@@ -50,10 +52,13 @@ class RulesStore:
         if not p.exists():
             return {"category": category, "last_updated": "", "rules": []}
         with open(p) as f:
-            return yaml.safe_load(f) or {"category": category, "last_updated": "", "rules": []}
+            raw = yaml.safe_load(f) or {"category": category, "last_updated": "", "rules": []}
+        validated = validate_rule_category_file(raw)
+        return validated.model_dump()
 
     def _save(self, category: str, data: dict[str, Any]) -> None:
         data["last_updated"] = datetime.now(timezone.utc).isoformat()
+        validate_rule_category_file(data)
         with open(self._path(category), "w") as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
@@ -123,17 +128,21 @@ class RulesStore:
         data = self._load(category)
         rules = data.get("rules", [])
         new_id = self._next_id(category, rules)
-        entry: dict[str, Any] = {
+        entry_dict: dict[str, Any] = {
             "id": new_id,
             "rule": rule,
             "rationale": rationale,
             "added": date.today().isoformat(),
         }
         if language:
-            entry["language"] = language
+            entry_dict["language"] = language
         if examples:
-            entry["examples"] = examples
-        rules.append(entry)
+            entry_dict["examples"] = examples
+        try:
+            validated = validate_rule_entry(entry_dict)
+        except ValidationError as e:
+            return f"Validation error: {e}"
+        rules.append(validated.model_dump(exclude_none=True))
         data["rules"] = rules
         self._save(category, data)
         return f"Added rule **{new_id}** to '{category}'."
@@ -201,21 +210,31 @@ class RulesStore:
         data = yaml.safe_load(content)
         if not isinstance(data, dict):
             return "Invalid import format: expected a YAML mapping."
+        if mode not in ("merge", "replace"):
+            return f"Invalid mode '{mode}'. Must be 'merge' or 'replace'."
         imported = 0
+        errors: list[str] = []
         for cat in self._cfg.categories:
             if cat not in data:
                 continue
             incoming = data[cat]
             if not isinstance(incoming, list):
                 continue
+            validated_entries: list[dict[str, Any]] = []
+            for i, r in enumerate(incoming):
+                try:
+                    entry = validate_rule_entry(r)
+                    validated_entries.append(entry.model_dump(exclude_none=True))
+                except ValidationError as e:
+                    errors.append(f"{cat}[{i}]: {e}")
             if mode == "replace":
-                cat_data = {"category": cat, "rules": incoming}
+                cat_data = {"category": cat, "rules": validated_entries}
                 self._save(cat, cat_data)
-                imported += len(incoming)
+                imported += len(validated_entries)
             else:  # merge
                 cat_data = self._load(cat)
                 existing_ids = {r["id"] for r in cat_data.get("rules", [])}
-                for r in incoming:
+                for r in validated_entries:
                     rid = r.get("id", "")
                     if rid in existing_ids:
                         cat_data["rules"] = [
@@ -225,7 +244,10 @@ class RulesStore:
                         cat_data.setdefault("rules", []).append(r)
                     imported += 1
                 self._save(cat, cat_data)
-        return f"Imported {imported} rule(s) in '{mode}' mode."
+        result = f"Imported {imported} rule(s) in '{mode}' mode."
+        if errors:
+            result += f"\n\nValidation errors ({len(errors)} skipped):\n" + "\n".join(errors)
+        return result
 
     def _format_rules(self, rules: list[dict], category: str) -> str:
         lines = [f"## {category}", ""]

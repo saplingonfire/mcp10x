@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from mcp10x.config import AppConfig
+from mcp10x.schemas import validate_context_entries
 
 
 class ContextStore:
@@ -28,6 +30,10 @@ class ContextStore:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
     def set(self, entries: dict[str, Any]) -> str:
+        try:
+            validate_context_entries(entries)
+        except ValidationError as e:
+            return f"Validation error — values must be simple types (str, int, float, bool, list[str], null): {e}"
         data = self._load()
         data.update(entries)
         self._save(data)

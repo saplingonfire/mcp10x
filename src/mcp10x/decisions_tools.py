@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from mcp10x.config import AppConfig
+from mcp10x.schemas import validate_decision_entry, validate_decision_file
 
 
 class DecisionStore:
@@ -23,10 +25,13 @@ class DecisionStore:
         if not self._path.exists():
             return {"category": "decisions", "last_updated": "", "decisions": []}
         with open(self._path) as f:
-            return yaml.safe_load(f) or {"category": "decisions", "last_updated": "", "decisions": []}
+            raw = yaml.safe_load(f) or {"category": "decisions", "last_updated": "", "decisions": []}
+        validated = validate_decision_file(raw)
+        return validated.model_dump()
 
     def _save(self, data: dict[str, Any]) -> None:
         data["last_updated"] = datetime.now(timezone.utc).isoformat()
+        validate_decision_file(data)
         with open(self._path, "w") as f:
             yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
@@ -50,7 +55,7 @@ class DecisionStore:
         data = self._load()
         decisions = data.get("decisions", [])
         new_id = self._next_id(decisions)
-        entry: dict[str, Any] = {
+        entry_dict: dict[str, Any] = {
             "id": new_id,
             "title": title,
             "decision": decision,
@@ -58,12 +63,16 @@ class DecisionStore:
             "added": date.today().isoformat(),
         }
         if alternatives_considered:
-            entry["alternatives_considered"] = alternatives_considered
+            entry_dict["alternatives_considered"] = alternatives_considered
         if ticket:
-            entry["ticket"] = ticket
+            entry_dict["ticket"] = ticket
         if language:
-            entry["language"] = language
-        decisions.append(entry)
+            entry_dict["language"] = language
+        try:
+            validated = validate_decision_entry(entry_dict)
+        except ValidationError as e:
+            return f"Validation error: {e}"
+        decisions.append(validated.model_dump(exclude_none=True))
         data["decisions"] = decisions
         self._save(data)
         return f"Recorded decision **{new_id}**: {title}"
