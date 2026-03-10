@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mcp10x": {
+      "command": "python",
+      "args": ["-m", "mcp10x", "--config", "./config.yaml"],
+      "env": {
+        "PYTHONPATH": "./src",
+        "MCP10X_JIRA_PAT": "",
+        "MCP10X_CONFLUENCE_PAT": ""
+      }
+    }
+  }
+}

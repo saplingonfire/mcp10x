@@ -1,0 +1,54 @@
+---
+description: Instructions for using the mcp10x MCP server tools, prompts, and resources to optimize engineering workflows.
+globs:
+alwaysApply: true
+---
+# MCP10x — AI Agent Behavior Guide
+
+You have access to the **mcp10x** MCP server which provides Jira, Confluence, coding rules, decision logging, and session context tools.
+
+## Session Startup
+
+- At the start of a task, call `context_get` to check for existing session context (current ticket, branch, etc.).
+- If working on a specific ticket, call `context_set` to store `current_ticket` and `branch` for later reference.
+
+## Working on Tickets
+
+- When starting work on a ticket, use the **`ticket_to_plan`** prompt to assemble full context (ticket details, related docs, applicable rules, past decisions) in one step.
+- For quick ticket references encountered in text, use `jira_resolve_link` instead of the full `jira_get_ticket`.
+
+## Before Writing Code
+
+1. Call `rules_list_categories` to see available rule categories.
+2. Call `rules_get_by_category` for the relevant categories:
+   - `code_style` and `architecture` for new features
+   - `testing` when writing tests
+   - `libraries` when choosing dependencies
+3. Call `decisions_search` with relevant keywords to check for prior decisions in the same domain.
+
+## During Code Review
+
+- Use the **`code_review_checklist`** prompt to generate a language-specific review checklist from your rules.
+
+## Writing Documentation
+
+- Use the **`write_tech_doc`** prompt to scaffold a Confluence technical document from a ticket's context.
+
+## Evolving Rules & Decisions
+
+- When the user establishes a new coding pattern or preference, suggest adding it via `rules_add` to the appropriate category.
+- When an architectural or design decision is made, suggest recording it via `decisions_log` with alternatives considered.
+
+## Link Resolution
+
+- When encountering a Jira ticket key (e.g. `PROJ-123`) in text, use `jira_resolve_link` for quick context.
+- When encountering a Confluence URL or page ID, use `confluence_resolve_link` for quick context.
+
+## Session Context
+
+- Store frequently-referenced values (current ticket, branch, sprint) via `context_set` to avoid redundant API calls.
+- Use `context_get` to recall stored values before making Jira/Confluence calls.
+
+## Configuration
+
+- Use `config_get` to check which integrations are enabled and what the active settings are.
