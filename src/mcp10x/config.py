@@ -53,6 +53,14 @@ class RulesConfig:
 
 
 @dataclass
+class GitLabConfig:
+    enabled: bool = True
+    base_url: str = ""
+    pat: str = ""
+    default_project: str = ""
+
+
+@dataclass
 class ContextConfig:
     file_path: str = ".context.yaml"
 
@@ -61,6 +69,7 @@ class ContextConfig:
 class AppConfig:
     jira: JiraConfig = field(default_factory=JiraConfig)
     confluence: ConfluenceConfig = field(default_factory=ConfluenceConfig)
+    gitlab: GitLabConfig = field(default_factory=GitLabConfig)
     rules: RulesConfig = field(default_factory=RulesConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
 
@@ -84,7 +93,7 @@ class AppConfig:
         """Return config dict with secrets replaced by '***'."""
         d = _to_dict(self)
         d.pop("_config_dir", None)
-        for section in ("jira", "confluence"):
+        for section in ("jira", "confluence", "gitlab"):
             if "pat" in d.get(section, {}):
                 d[section]["pat"] = "***" if d[section]["pat"] else ""
         return d
@@ -117,6 +126,7 @@ def _resolve_config_path(explicit: str | Path | None) -> Path | None:
 def _build_config(raw: dict[str, Any], config_dir: Path) -> AppConfig:
     jira_raw = raw.get("jira", {})
     confluence_raw = raw.get("confluence", {})
+    gitlab_raw = raw.get("gitlab", {})
     rules_raw = raw.get("rules", {})
     context_raw = raw.get("context", {})
 
@@ -133,6 +143,7 @@ def _build_config(raw: dict[str, Any], config_dir: Path) -> AppConfig:
             **{k: v for k, v in confluence_raw.items() if k in ConfluenceConfig.__dataclass_fields__},
             tech_doc_template=tech_doc,
         ),
+        gitlab=GitLabConfig(**{k: v for k, v in gitlab_raw.items() if k in GitLabConfig.__dataclass_fields__}),
         rules=RulesConfig(**{k: v for k, v in rules_raw.items() if k in RulesConfig.__dataclass_fields__}),
         context=ContextConfig(**{k: v for k, v in context_raw.items() if k in ContextConfig.__dataclass_fields__}),
         _config_dir=config_dir,
@@ -148,6 +159,10 @@ def _apply_env_overrides(cfg: AppConfig) -> None:
         cfg.confluence.pat = v
     if v := os.environ.get("MCP10X_CONFLUENCE_URL"):
         cfg.confluence.base_url = v
+    if v := os.environ.get("MCP10X_GITLAB_PAT"):
+        cfg.gitlab.pat = v
+    if v := os.environ.get("MCP10X_GITLAB_URL"):
+        cfg.gitlab.base_url = v
 
 
 def _to_dict(obj: Any) -> Any:

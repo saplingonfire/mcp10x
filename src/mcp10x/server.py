@@ -35,6 +35,14 @@ def build_server(cfg: AppConfig) -> FastMCP:
         confluence_client = ConfluenceClient(cfg)
         register_confluence_tools(mcp, confluence_client)
 
+    # -- GitLab --
+    gitlab_client = None
+    if cfg.gitlab.enabled and cfg.gitlab.base_url and cfg.gitlab.pat:
+        from mcp10x.gitlab_tools import GitLabClient, register_gitlab_tools
+
+        gitlab_client = GitLabClient(cfg)
+        register_gitlab_tools(mcp, gitlab_client)
+
     # -- Jira --
     jira_client = None
     if cfg.jira.enabled and cfg.jira.base_url and cfg.jira.pat:
