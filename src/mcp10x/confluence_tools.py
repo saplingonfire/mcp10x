@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import html as html_mod
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
+import markdown as md_lib
 from atlassian import Confluence
 from markdownify import markdownify as html_to_md
 
@@ -26,51 +28,39 @@ class ConfluenceClient:
     def _storage_to_md(self, html: str) -> str:
         return html_to_md(html, heading_style="ATX", strip=["style"])
 
-    @staticmethod
-    def _md_to_storage(md: str) -> str:
-        """Minimal markdown-to-Confluence storage format conversion.
+    _MD_CONVERTER = md_lib.Markdown(extensions=["tables", "fenced_code", "sane_lists"])
 
-        For a production server you'd want a proper converter, but this handles
-        the most common elements: headings, bold, italic, code blocks, links, and lists.
+    @classmethod
+    def _md_to_storage(cls, md_text: str) -> str:
+        """Convert markdown to Confluence storage format (XHTML + macros).
+
+        Uses the ``markdown`` library for full element support (tables,
+        lists, links, etc.), then post-processes fenced code blocks into
+        Confluence ``code`` structured macros.
         """
-        lines = md.split("\n")
-        out: list[str] = []
-        in_code_block = False
-        code_lang = ""
+        cls._MD_CONVERTER.reset()
+        html = cls._MD_CONVERTER.convert(md_text)
 
-        for line in lines:
-            if line.startswith("```") and not in_code_block:
-                code_lang = line[3:].strip()
-                lang_attr = f' language="{code_lang}"' if code_lang else ""
-                out.append(f"<ac:structured-macro ac:name=\"code\"><ac:parameter ac:name=\"language\">{code_lang}</ac:parameter><ac:plain-text-body><![CDATA[")
-                in_code_block = True
-                continue
-            if line.startswith("```") and in_code_block:
-                out.append("]]></ac:plain-text-body></ac:structured-macro>")
-                in_code_block = False
-                continue
-            if in_code_block:
-                out.append(line)
-                continue
+        html = re.sub(r"<hr\s*/?>", "<hr />", html)
 
-            # Headings
-            m = re.match(r"^(#{1,6})\s+(.*)", line)
-            if m:
-                level = len(m.group(1))
-                out.append(f"<h{level}>{m.group(2)}</h{level}>")
-                continue
+        def _code_block_to_macro(m: re.Match) -> str:
+            lang = m.group(1) or ""
+            code = html_mod.unescape(m.group(2))
+            return (
+                '<ac:structured-macro ac:name="code">'
+                f'<ac:parameter ac:name="language">{lang}</ac:parameter>'
+                f"<ac:plain-text-body><![CDATA[{code}]]>"
+                "</ac:plain-text-body></ac:structured-macro>"
+            )
 
-            # Bold / italic
-            converted = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", line)
-            converted = re.sub(r"\*(.+?)\*", r"<em>\1</em>", converted)
-            converted = re.sub(r"`(.+?)`", r"<code>\1</code>", converted)
+        html = re.sub(
+            r'<pre><code(?:\s+class="language-(\w+)")?>(.*?)</code></pre>',
+            _code_block_to_macro,
+            html,
+            flags=re.DOTALL,
+        )
 
-            if converted.strip():
-                out.append(f"<p>{converted}</p>")
-            else:
-                out.append("")
-
-        return "\n".join(out)
+        return html
 
     def _format_page_brief(self, page: dict[str, Any]) -> str:
         page_id = page.get("id", "?")
@@ -163,6 +153,7 @@ class ConfluenceClient:
             type="page",
             representation="storage",
             minor_edit=False,
+            version_comment=version_message,
         )
         return f"Updated [{title}]({self._page_url(page_id)}) to version {current_version + 1}"
 
@@ -182,24 +173,40 @@ class ConfluenceClient:
         return "\n\n---\n\n".join(lines)
 
     def resolve_link(self, url_or_id: str) -> str:
-        page_id = self._extract_page_id(url_or_id)
-        if not page_id:
-            return f"Could not extract page ID from: {url_or_id}"
-        page = self._client.get_page_by_id(page_id, expand="version,space,metadata.labels")
+        page = self._resolve_page(url_or_id)
+        if isinstance(page, str):
+            return page
         return self._format_page_brief(page)
 
-    def _extract_page_id(self, url_or_id: str) -> str | None:
+    def _resolve_page(self, url_or_id: str) -> dict[str, Any] | str:
+        """Resolve a URL, page ID, or /display/ path to a full page dict.
+
+        Returns the page dict on success, or an error message string on failure.
+        """
         if url_or_id.isdigit():
-            return url_or_id
+            return self._client.get_page_by_id(url_or_id, expand="version,space,metadata.labels")
+
         parsed = urlparse(url_or_id)
+
         params = dict(p.split("=", 1) for p in parsed.query.split("&") if "=" in p)
         if "pageId" in params:
-            return params["pageId"]
-        # Try /pages/<id> pattern
+            return self._client.get_page_by_id(params["pageId"], expand="version,space,metadata.labels")
+
         m = re.search(r"/pages/(\d+)", parsed.path)
         if m:
-            return m.group(1)
-        return None
+            return self._client.get_page_by_id(m.group(1), expand="version,space,metadata.labels")
+
+        # /display/SPACE/Page+Title format
+        m = re.match(r"/display/([^/]+)/(.+?)(?:\?.*)?$", parsed.path)
+        if m:
+            space_key = m.group(1)
+            title = unquote(m.group(2).replace("+", " "))
+            page = self._client.get_page_by_title(space_key, title, expand="version,space,metadata.labels")
+            if page:
+                return page
+            return f"Page not found: space={space_key}, title={title}"
+
+        return f"Could not extract page ID from: {url_or_id}"
 
 
 def register_confluence_tools(mcp: Any, client: ConfluenceClient) -> None:
