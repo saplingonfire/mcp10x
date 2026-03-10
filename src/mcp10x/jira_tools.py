@@ -92,6 +92,7 @@ class JiraClient:
         priority: str | None = None,
         assignee: str | None = None,
         labels: list[str] | None = None,
+        extra_fields: dict[str, Any] | None = None,
     ) -> str:
         fields: dict[str, Any] = {
             "project": {"key": project},
@@ -99,12 +100,21 @@ class JiraClient:
             "description": description,
             "issuetype": {"name": issue_type},
         }
+
+        # Merge order: base → config defaults → explicit extra_fields
+        if self._cfg.default_fields:
+            fields.update(self._cfg.default_fields)
+        if extra_fields:
+            fields.update(extra_fields)
+
+        # Named params take precedence over anything in default_fields/extra_fields
         if priority:
             fields["priority"] = {"name": priority}
         if assignee:
             fields["assignee"] = {"name": assignee}
         if labels:
             fields["labels"] = labels
+
         result = self._client.create_issue(fields=fields)
         key = result.get("key", "?")
         return f"Created [{key}]({self._ticket_url(key)})"
@@ -325,8 +335,9 @@ def register_jira_tools(
         priority: str | None = None,
         assignee: str | None = None,
         labels: list[str] | None = None,
+        extra_fields: dict[str, Any] | None = None,
     ) -> str:
-        """Create a new Jira ticket."""
+        """Create a new Jira ticket. Use extra_fields for any Jira-native field structure not covered by the named parameters (e.g. components, fixVersions, custom fields). Example: {"components": [{"name": "ACR"}], "fixVersions": [{"name": "1.0"}]}. Named params (priority, assignee, labels) take precedence over extra_fields if both are provided."""
         return client.create_ticket(
             project=project,
             summary=summary,
@@ -335,6 +346,7 @@ def register_jira_tools(
             priority=priority,
             assignee=assignee,
             labels=labels,
+            extra_fields=extra_fields,
         )
 
     @mcp.tool()

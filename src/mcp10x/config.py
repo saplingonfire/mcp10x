@@ -15,6 +15,7 @@ class JiraConfig:
     pat: str = ""
     default_project: str = ""
     username: str = ""
+    default_fields: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
