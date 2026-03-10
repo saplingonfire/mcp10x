@@ -36,8 +36,10 @@ You have access to the **mcp10x** MCP server which provides Jira, Confluence, co
 
 ## Evolving Rules & Decisions
 
-- When the user establishes a new coding pattern or preference, suggest adding it via `rules_add` to the appropriate category.
-- When an architectural or design decision is made, suggest recording it via `decisions_log` with alternatives considered.
+- When the user corrects your code, rejects an approach, or states a preference (e.g. "always use X", "don't do Y"), immediately call `rules_add` to persist it in the appropriate category. Do not just acknowledge — capture the rule so it applies to future sessions.
+- When you notice the user consistently following a pattern across multiple interactions (e.g. always using a specific error handling style, naming convention, or library), proactively suggest adding it as a rule via `rules_add`.
+- When an architectural or design decision is made, immediately call `decisions_log` with alternatives considered. Do not wait to be asked.
+- Before adding a rule or decision, call `rules_search` to check if a similar rule already exists. Update via `rules_update` instead of creating duplicates.
 
 ## Link Resolution
 
