@@ -12,7 +12,7 @@ venv/
 
 # Cursor IDE — ignore everything except mcp.json and custom rules
 .cursor/*
-!.cursor/mcp.json
 !.cursor/rules/
 .cursor/rules/*
 !.cursor/rules/mcp10x.mdc
+.cursor/mcp.json
