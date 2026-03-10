@@ -1,0 +1,13 @@
+category: code_style
+last_updated: '2026-03-10T02:58:30.695685+00:00'
+rules:
+- id: cs-001
+  rule: Use table-driven tests
+  rationale: Better test organization
+  added: '2026-03-10'
+  language: go
+- id: cs-002
+  rule: Prefer named returns only when helpful
+  rationale: Avoid naked returns
+  added: '2026-03-10'
+  language: go

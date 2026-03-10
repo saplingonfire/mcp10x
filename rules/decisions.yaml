@@ -1,0 +1,12 @@
+category: decisions
+last_updated: '2026-03-10T02:58:37.662807+00:00'
+decisions:
+- id: dec-001
+  title: Use Redis for cache
+  decision: Chose Redis over Memcached
+  rationale: Need pub/sub + persistence
+  added: '2026-03-10'
+  alternatives_considered:
+  - Memcached
+  - In-memory
+  ticket: PROJ-123
