@@ -11,6 +11,19 @@ from mcp10x.config import AppConfig
 from mcp10x.schemas import validate_jira_update_fields
 
 
+# Fields where JIRA expects a plain string, not a dict.
+# Epic Link is the most common — the API wants "PROJ-123", not {"name": "PROJ-123"}.
+_STRING_FIELDS = {"customfield_10001"}
+
+# Fields where JIRA expects an array of objects.
+# If config supplies a single dict, wrap it in a list.
+_ARRAY_FIELDS = {"components", "fixVersions", "versions", "labels"}
+
+# Fields where JIRA expects {"value": "..."} (option/cascading select).
+# If config supplies {"name": "..."} without an "id" or "value" key, convert it.
+_OPTION_FIELD_PREFIX = "customfield_"
+
+
 class JiraClient:
     """Thin wrapper around atlassian-python-api Jira with PAT auth."""
 
@@ -18,6 +31,37 @@ class JiraClient:
         self._cfg = cfg.jira
         self._base_url = cfg.jira.base_url.rstrip("/")
         self._client = Jira(url=cfg.jira.base_url, token=cfg.jira.pat)
+
+    @staticmethod
+    def _normalize_field(key: str, value: Any) -> Any:
+        """Normalize a field value to match JIRA REST API expectations.
+
+        Handles three common mismatches between human-friendly config
+        format and what the API actually requires:
+        1. String fields stored as {"name": "X"} → extract to "X"
+        2. Array fields stored as a single dict → wrap in a list
+        3. Option-select custom fields with {"name": "X"} → {"value": "X"}
+        """
+        if key in _STRING_FIELDS:
+            if isinstance(value, dict) and "name" in value:
+                return value["name"]
+            return value
+
+        if key in _ARRAY_FIELDS:
+            if isinstance(value, dict):
+                return [value]
+            return value
+
+        if (
+            key.startswith(_OPTION_FIELD_PREFIX)
+            and isinstance(value, dict)
+            and "name" in value
+            and "id" not in value
+            and "value" not in value
+        ):
+            return {"value": value["name"]}
+
+        return value
 
     def _ticket_url(self, key: str) -> str:
         return f"{self._base_url}/browse/{key}"
@@ -103,9 +147,11 @@ class JiraClient:
 
         # Merge order: base → config defaults → explicit extra_fields
         if self._cfg.default_fields:
-            fields.update(self._cfg.default_fields)
+            for k, v in self._cfg.default_fields.items():
+                fields[k] = self._normalize_field(k, v)
         if extra_fields:
-            fields.update(extra_fields)
+            for k, v in extra_fields.items():
+                fields[k] = self._normalize_field(k, v)
 
         # Named params take precedence over anything in default_fields/extra_fields
         if priority:

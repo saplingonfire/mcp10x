@@ -10,12 +10,20 @@ jira:
   pat: ""
   default_project: "MYPROJ"
   username: "your.email@example.com"
-  # Default fields merged into every jira_create_ticket call (config defaults → extra_fields → named params)
+  # Default fields merged into every jira_create_ticket call (config defaults → extra_fields → named params).
+  # Values are auto-normalized but prefer using JIRA-native formats:
+  #   - Array fields (components, fixVersions): use a list     [{name: "X"}]
+  #   - String fields (Epic Link / customfield_10001): use a plain string  "PROJ-123"
+  #   - Option select custom fields: use {value: "Option Name"} or {id: "12345"}
+  #   - Object fields (assignee, priority): use {name: "..."} as usual
   default_fields: {}
   # Example:
   #   default_fields:
   #     components:
   #       - name: "MyComponent"
+  #     customfield_10001: "PROJ-123"
+  #     customfield_12411:
+  #       value: "Technical Project"
   #     assignee:
   #       name: "your.email@example.com"
 
