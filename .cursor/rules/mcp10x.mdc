@@ -5,7 +5,7 @@ alwaysApply: true
 ---
 # MCP10x — AI Agent Behavior Guide
 
-You have access to the **mcp10x** MCP server which provides Jira, Confluence, GitLab, coding rules, decision logging, and session context tools.
+You have access to the **mcp10x** MCP server which provides Jira, Confluence, GitLab, GitHub, coding rules, decision logging, and session context tools.
 
 ## Session Startup
 
@@ -49,11 +49,20 @@ You have access to the **mcp10x** MCP server which provides Jira, Confluence, Gi
 - Use `gitlab_add_mr_comment` to post review feedback or status updates.
 - For quick MR references encountered in text (e.g. `!42` or a GitLab URL), use `gitlab_resolve_link`.
 
+## Working with Pull Requests (GitHub)
+
+- Use `github_create_pr` to create a new PR. If `default_repo` is configured (owner/repo), omit the `repo` parameter.
+- Use `github_list_prs` to see open PRs before creating a new one (avoid duplicates).
+- Use `github_pr_diff` to review changes in a PR before adding comments.
+- Use `github_add_pr_comment` to post review feedback or status updates.
+- For quick PR references encountered in text (e.g. `#42` or a GitHub PR URL), use `github_resolve_link`.
+
 ## Link Resolution
 
 - When encountering a Jira ticket key (e.g. `PROJ-123`) in text, use `jira_resolve_link` for quick context.
 - When encountering a Confluence URL or page ID, use `confluence_resolve_link` for quick context.
 - When encountering a GitLab MR reference (e.g. `!42`) or URL, use `gitlab_resolve_link` for quick context.
+- When encountering a GitHub PR reference (e.g. `#42`) or URL, use `github_resolve_link` for quick context.
 
 ## Session Context
 

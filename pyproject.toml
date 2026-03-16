@@ -14,6 +14,7 @@ dependencies = [
     "markdownify>=0.13.0",
     "markdown>=3.5",
     "python-gitlab>=4.0.0",
+    "PyGithub>=2.0.0",
 ]
 
 [project.scripts]

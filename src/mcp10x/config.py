@@ -61,6 +61,13 @@ class GitLabConfig:
 
 
 @dataclass
+class GitHubConfig:
+    enabled: bool = True
+    pat: str = ""
+    default_repo: str = ""  # "owner/repo"
+
+
+@dataclass
 class ContextConfig:
     file_path: str = ".context.yaml"
 
@@ -70,6 +77,7 @@ class AppConfig:
     jira: JiraConfig = field(default_factory=JiraConfig)
     confluence: ConfluenceConfig = field(default_factory=ConfluenceConfig)
     gitlab: GitLabConfig = field(default_factory=GitLabConfig)
+    github: GitHubConfig = field(default_factory=GitHubConfig)
     rules: RulesConfig = field(default_factory=RulesConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
 
@@ -93,7 +101,7 @@ class AppConfig:
         """Return config dict with secrets replaced by '***'."""
         d = _to_dict(self)
         d.pop("_config_dir", None)
-        for section in ("jira", "confluence", "gitlab"):
+        for section in ("jira", "confluence", "gitlab", "github"):
             if "pat" in d.get(section, {}):
                 d[section]["pat"] = "***" if d[section]["pat"] else ""
         return d
@@ -127,6 +135,7 @@ def _build_config(raw: dict[str, Any], config_dir: Path) -> AppConfig:
     jira_raw = raw.get("jira", {})
     confluence_raw = raw.get("confluence", {})
     gitlab_raw = raw.get("gitlab", {})
+    github_raw = raw.get("github", {})
     rules_raw = raw.get("rules", {})
     context_raw = raw.get("context", {})
 
@@ -144,6 +153,7 @@ def _build_config(raw: dict[str, Any], config_dir: Path) -> AppConfig:
             tech_doc_template=tech_doc,
         ),
         gitlab=GitLabConfig(**{k: v for k, v in gitlab_raw.items() if k in GitLabConfig.__dataclass_fields__}),
+        github=GitHubConfig(**{k: v for k, v in github_raw.items() if k in GitHubConfig.__dataclass_fields__}),
         rules=RulesConfig(**{k: v for k, v in rules_raw.items() if k in RulesConfig.__dataclass_fields__}),
         context=ContextConfig(**{k: v for k, v in context_raw.items() if k in ContextConfig.__dataclass_fields__}),
         _config_dir=config_dir,
@@ -163,6 +173,10 @@ def _apply_env_overrides(cfg: AppConfig) -> None:
         cfg.gitlab.pat = v
     if v := os.environ.get("MCP10X_GITLAB_URL"):
         cfg.gitlab.base_url = v
+    if v := os.environ.get("MCP10X_GITHUB_PAT"):
+        cfg.github.pat = v
+    if v := os.environ.get("MCP10X_GITHUB_REPO"):
+        cfg.github.default_repo = v
 
 
 def _to_dict(obj: Any) -> Any:

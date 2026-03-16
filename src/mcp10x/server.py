@@ -43,6 +43,13 @@ def build_server(cfg: AppConfig) -> FastMCP:
         gitlab_client = GitLabClient(cfg)
         register_gitlab_tools(mcp, gitlab_client)
 
+    # -- GitHub --
+    if cfg.github.enabled and cfg.github.pat:
+        from mcp10x.github_tools import GitHubClient, register_github_tools
+
+        github_client = GitHubClient(cfg)
+        register_github_tools(mcp, github_client)
+
     # -- Jira --
     jira_client = None
     if cfg.jira.enabled and cfg.jira.base_url and cfg.jira.pat:
