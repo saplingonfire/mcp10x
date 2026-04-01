@@ -7,15 +7,54 @@ alwaysApply: true
 
 You have access to the **mcp10x** MCP server which provides Jira, Confluence, GitLab, GitHub, coding rules, decision logging, and session context tools.
 
-## Session Startup
+---
 
-- At the start of a task, call `context_get` to check for existing session context (current ticket, branch, etc.).
-- If working on a specific ticket, call `context_set` to store `current_ticket` and `branch` for later reference.
+## MANDATORY — Long-Term Memory (Rules & Decisions)
 
-## Working on Tickets
+**This section is non-optional. You MUST follow these instructions every session.**
 
-- When starting work on a ticket, use the **`ticket_to_plan`** prompt to assemble full context (ticket details, related docs, applicable rules, past decisions) in one step.
-- For quick ticket references encountered in text, use `jira_resolve_link` instead of the full `jira_get_ticket`.
+The `rules/` directory is the user's long-term memory across sessions. Rules and decisions persisted here survive context resets and carry forward to all future conversations. Failing to capture learnings here means the user must repeat themselves.
+
+### Session Startup — Load Memory
+
+At the start of **every** session, before doing any other work:
+
+1. Call `context_get` to check for existing session context (current ticket, branch, etc.).
+2. Call `rules_get_all` to load all existing rules into your context. This primes you with the user's accumulated preferences so you don't contradict them.
+3. If working on a specific ticket, call `context_set` to store `current_ticket` and `branch`.
+
+### When to Persist — Trigger Conditions
+
+You MUST call `rules_add` or `decisions_log` whenever ANY of these occur:
+
+1. **User corrects your code** — The correction implies a preference. Capture it as a rule.
+2. **User rejects an approach** — "Don't use X", "I prefer Y" → `rules_add` immediately.
+3. **User states a preference** — "Always use X", "We do Y here" → `rules_add` immediately.
+4. **A design/architecture decision is made** — `decisions_log` with alternatives considered.
+5. **User says "remember this"**, "save this", "add this as a rule", or similar → `rules_add`.
+6. **You notice a repeated pattern** — The user consistently does something the same way across the conversation → proactively suggest adding it via `rules_add`.
+
+### How to Persist
+
+1. First, call `rules_search` with keywords from the rule to check for duplicates.
+2. If a similar rule exists, call `rules_update` instead of `rules_add`.
+3. If no duplicate, call `rules_add` with:
+   - `category`: one of `code_style`, `architecture`, `libraries`, `code_review`, `testing`
+   - `rule`: concise, imperative statement of what to do/not do
+   - `rationale`: why this rule exists (one sentence)
+4. For decisions, call `decisions_log` with `title`, `decision`, `rationale`, and `alternatives_considered`.
+
+### Memory Checkpoint — Before Ending Every Response
+
+**Before completing your final response**, evaluate this checklist:
+
+- [ ] Did the user express a new preference, correction, or convention? → Call `rules_add`
+- [ ] Was a design or architecture decision made? → Call `decisions_log`
+- [ ] Did the user say "remember", "always", "never", "don't do", "prefer", or similar? → Call `rules_add`
+
+If ANY box is checked and you have not yet called the tool, you MUST call it NOW before responding. Do not skip this step.
+
+---
 
 ## Before Writing Code
 
@@ -26,6 +65,11 @@ You have access to the **mcp10x** MCP server which provides Jira, Confluence, Gi
    - `libraries` when choosing dependencies
 3. Call `decisions_search` with relevant keywords to check for prior decisions in the same domain.
 
+## Working on Tickets
+
+- When starting work on a ticket, use the **`ticket_to_plan`** prompt to assemble full context (ticket details, related docs, applicable rules, past decisions) in one step.
+- For quick ticket references encountered in text, use `jira_resolve_link` instead of the full `jira_get_ticket`.
+
 ## During Code Review
 
 - Use the **`code_review_checklist`** prompt to generate a language-specific review checklist from your rules.
@@ -33,13 +77,6 @@ You have access to the **mcp10x** MCP server which provides Jira, Confluence, Gi
 ## Writing Documentation
 
 - Use the **`write_tech_doc`** prompt to scaffold a Confluence technical document from a ticket's context.
-
-## Evolving Rules & Decisions
-
-- When the user corrects your code, rejects an approach, or states a preference (e.g. "always use X", "don't do Y"), immediately call `rules_add` to persist it in the appropriate category. Do not just acknowledge — capture the rule so it applies to future sessions.
-- When you notice the user consistently following a pattern across multiple interactions (e.g. always using a specific error handling style, naming convention, or library), proactively suggest adding it as a rule via `rules_add`.
-- When an architectural or design decision is made, immediately call `decisions_log` with alternatives considered. Do not wait to be asked.
-- Before adding a rule or decision, call `rules_search` to check if a similar rule already exists. Update via `rules_update` instead of creating duplicates.
 
 ## Working with Merge Requests
 
