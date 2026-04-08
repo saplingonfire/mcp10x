@@ -154,6 +154,15 @@ class ArtifactStore:
         """Return raw artifact objects of a given type (used by role activation)."""
         return [a for a in self._load_all() if a.type == artifact_type]
 
+    def get_by_ids(self, artifact_ids: list[str]) -> list[ArtifactFile]:
+        """Return raw artifact objects by their IDs."""
+        results: list[ArtifactFile] = []
+        for aid in artifact_ids:
+            a = self._load(aid)
+            if a:
+                results.append(a)
+        return results
+
     # -- internal --
 
     def _load(self, artifact_id: str) -> ArtifactFile | None:

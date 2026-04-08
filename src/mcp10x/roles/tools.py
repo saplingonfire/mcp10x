@@ -59,19 +59,41 @@ def register_role_tools(
                 rules_parts.append(cat_rules)
             sections.append("\n\n".join(rules_parts))
 
-        # 4. Available input artifacts
+        # 4. Available input artifacts (workflow-scoped when possible)
         if artifact_store and role.input_artifacts:
             artifact_lines: list[str] = ["## Available Input Artifacts\n"]
             found_any = False
-            for art_type in role.input_artifacts:
-                artifacts = artifact_store.get_by_type(art_type)
-                for a in artifacts:
-                    current = a.versions[-1] if a.versions else None
-                    ver = f"v{current.version}" if current else "v0"
-                    artifact_lines.append(
-                        f"- **{a.id}** [{a.type}] {a.title} ({ver})"
-                    )
-                    found_any = True
+
+            workflow_artifact_ids: set[str] = set()
+            if workflow_engine and workflow_id:
+                wf_state = workflow_engine.get_workflow_state(workflow_id)
+                if wf_state:
+                    for step in wf_state.steps:
+                        workflow_artifact_ids.update(step.artifacts)
+
+            if workflow_artifact_ids:
+                wf_artifacts = artifact_store.get_by_ids(list(workflow_artifact_ids))
+                input_types = set(role.input_artifacts)
+                for a in wf_artifacts:
+                    if a.type in input_types:
+                        current = a.versions[-1] if a.versions else None
+                        ver = f"v{current.version}" if current else "v0"
+                        artifact_lines.append(
+                            f"- **{a.id}** [{a.type}] {a.title} ({ver})"
+                        )
+                        found_any = True
+
+            if not found_any:
+                for art_type in role.input_artifacts:
+                    artifacts = artifact_store.get_by_type(art_type)
+                    for a in artifacts:
+                        current = a.versions[-1] if a.versions else None
+                        ver = f"v{current.version}" if current else "v0"
+                        artifact_lines.append(
+                            f"- **{a.id}** [{a.type}] {a.title} ({ver})"
+                        )
+                        found_any = True
+
             if found_any:
                 artifact_lines.append(
                     "\nUse `artifact_get` to read any of these artifacts."
@@ -101,6 +123,16 @@ def register_role_tools(
             f"{tool_list}\n\n"
             f"Save all outputs using `artifact_save` with one of these types: "
             f"{', '.join(role.artifact_types) or 'general'}."
+        )
+
+        sections.append(
+            "## Reminders\n\n"
+            "- Save all substantial outputs using `artifact_save` before finishing.\n"
+            "- If the user expresses a preference, correction, or convention, "
+            "call `rules_add` immediately.\n"
+            "- If an architecture or design decision is made, call `decisions_log` "
+            "with alternatives considered.\n"
+            "- Call `session_end` before concluding the conversation."
         )
 
         return "\n\n---\n\n".join(sections)
