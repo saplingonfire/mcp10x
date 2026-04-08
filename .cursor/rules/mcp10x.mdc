@@ -5,7 +5,19 @@ alwaysApply: true
 ---
 # MCP10x — AI Agent Behavior Guide
 
-You have access to the **mcp10x** MCP server which provides roles, artifacts, workflows, Jira, Confluence, GitLab, GitHub, coding rules, decision logging, and session context tools.
+You have access to the **mcp10x** MCP server which provides roles, artifacts, workflows, workflow templates, Jira, Confluence, GitLab, GitHub, coding rules, decision logging, and session context tools.
+
+---
+
+## MANDATORY — Session Lifecycle
+
+### Session Start
+
+At the start of **every** session, call `session_start` as your **FIRST** action. This single call loads all accumulated context, rules, decisions, available roles, and active workflows. If working on a specific ticket, pass it: `session_start(ticket="PROJ-123")`.
+
+### Session End
+
+Before your **FINAL** response in any conversation, call `session_end` with a brief summary of what was accomplished. This triggers a pre-close checklist ensuring nothing is left unpersisted.
 
 ---
 
@@ -14,14 +26,6 @@ You have access to the **mcp10x** MCP server which provides roles, artifacts, wo
 **This section is non-optional. You MUST follow these instructions every session.**
 
 The `rules/` directory is the user's long-term memory across sessions. Rules and decisions persisted here survive context resets and carry forward to all future conversations. Failing to capture learnings here means the user must repeat themselves.
-
-### Session Startup — Load Memory
-
-At the start of **every** session, before doing any other work:
-
-1. Call `context_get` to check for existing session context (current ticket, branch, etc.).
-2. Call `rules_get_all` to load all existing rules into your context. This primes you with the user's accumulated preferences so you don't contradict them.
-3. If working on a specific ticket, call `context_set` to store `current_ticket` and `branch`.
 
 ### When to Persist — Trigger Conditions
 
@@ -53,6 +57,87 @@ You MUST call `rules_add` or `decisions_log` whenever ANY of these occur:
 - [ ] Did the user say "remember", "always", "never", "don't do", "prefer", or similar? → Call `rules_add`
 
 If ANY box is checked and you have not yet called the tool, you MUST call it NOW before responding. Do not skip this step.
+
+---
+
+## Roles — Auto-Activation Heuristics
+
+mcp10x provides 8 specialized roles. When the user's request matches ANY of the patterns below, call `role_activate` with the specified role **BEFORE** doing any work:
+
+- **product_manager**: user asks to "write a PRD", "define requirements", "create user stories", "plan a feature", "break this into tickets", "write acceptance criteria", "define scope"
+- **software_engineer**: user asks to "implement", "refactor", "design the architecture", "write an implementation plan", "review this code", "create a PR/MR", "write a technical design"
+- **qa_engineer**: user asks to "write tests", "create a test plan", "test this feature", "triage this bug", "coverage analysis", "write test cases", "QA this"
+- **technical_writer**: user asks to "write documentation", "create an ADR", "write a runbook", "document this API", "write an onboarding guide", "update the docs"
+- **data_analyst**: user asks to "analyze this data", "write a SQL query", "build a dashboard", "create a report", "explore this dataset", "what does the data show"
+- **data_scientist**: user asks to "build a model", "design an experiment", "evaluate model performance", "feature engineering", "train a classifier", "A/B test design"
+- **devops_sre**: user asks to "set up CI/CD", "deploy this", "write a Dockerfile", "configure monitoring", "incident response", "write infrastructure code", "create alerts"
+- **ux_designer**: user asks to "design the user flow", "wireframe this", "design the interface", "improve the UX", "user research", "usability review"
+
+If the task is ambiguous, call `role_list` and let the user choose.
+If already in a workflow, activate the role matching the workflow's current step.
+
+### How to Use Roles
+
+1. Call `role_activate` with the role ID and optional task/ticket/workflow context. Follow the returned instructions.
+2. Save all outputs using `artifact_save` with the appropriate artifact type for that role.
+3. If a preference, correction, or decision arises, persist it immediately (`rules_add` / `decisions_log`).
+
+### Custom Roles
+
+- Use `role_create` to define new roles with custom system prompts and tool lists.
+- Use `role_update` to modify existing roles.
+- Role definitions are stored as YAML files in the `roles/` directory and can be edited directly.
+
+---
+
+## Artifacts — Typed Outputs from Roles
+
+Artifacts are the structured outputs that roles produce. They persist across sessions and can be consumed by other roles.
+
+### When to Save Artifacts
+
+- After producing a PRD, implementation plan, test plan, or any substantial deliverable.
+- When the output should be referenced by downstream roles in a workflow.
+- When the user asks you to "save this" or "create a document".
+
+### How to Use Artifacts
+
+- `artifact_save` — save a new artifact (provide type, role, title, content) or update an existing one (provide artifact_id, new content).
+- `artifact_get` — retrieve an artifact by ID to read its content.
+- `artifact_list` — list artifacts, filterable by type, role, ticket, or workflow.
+- `artifact_search` — keyword search across artifact titles and content.
+- `artifact_history` — view version history of an artifact.
+
+---
+
+## Workflows — Multi-Role Orchestration
+
+Workflows track the progression of work across multiple roles (e.g. PM → SWE → QA pipeline).
+
+### When to Use Workflows
+
+- When the user wants to develop a feature end-to-end across multiple roles.
+- When work needs to be handed off between roles with artifact references.
+
+### Workflow Templates
+
+Use templates to start pre-defined pipelines with a single call:
+
+- `workflow_template_list` — see available templates (feature_development, data_project, bug_fix, documentation)
+- `workflow_template_get` — view the full step sequence of a template
+- `workflow_start_from_template` — start a workflow from a template (auto-activates the first role)
+
+### Manual Workflows
+
+1. `workflow_start` — begin a named workflow, optionally linked to a Jira ticket and starting role.
+2. Activate the first role using `role_activate` with the workflow ID.
+3. Produce artifacts and save them with `artifact_save`.
+4. `workflow_handoff` — transition to the next role, passing artifact IDs and notes.
+5. Repeat steps 2-4 for each role in the pipeline.
+6. `workflow_handoff` with `to_role="complete"` to finish the workflow.
+7. `workflow_cancel` — cancel an active workflow if needed.
+8. `workflow_status` — check current state at any time.
+9. `workflow_list` — see all active and completed workflows.
 
 ---
 
@@ -105,66 +190,6 @@ If ANY box is checked and you have not yet called the tool, you MUST call it NOW
 
 - Store frequently-referenced values (current ticket, branch, sprint) via `context_set` to avoid redundant API calls.
 - Use `context_get` to recall stored values before making Jira/Confluence calls.
-
-## Roles — Specialized Functional Personas
-
-mcp10x provides specialized roles (Product Manager, Software Engineer, QA Engineer, Technical Writer) that inject expert persona context, applicable rules, and available artifacts.
-
-### When to Activate a Role
-
-- When the user asks you to "act as" or "be" a specific role (e.g. "act as a PM and write a PRD").
-- When starting a workflow step that belongs to a specific role.
-- When the task clearly maps to a role's domain (writing tests → QA Engineer, writing docs → Technical Writer).
-
-### How to Use Roles
-
-1. Call `role_list` to see available roles.
-2. Call `role_activate` with the role ID and an optional task/ticket/workflow context. Follow the returned instructions.
-3. Save all outputs using `artifact_save` with the appropriate artifact type for that role.
-
-### Custom Roles
-
-- Use `role_create` to define new roles with custom system prompts and tool lists.
-- Use `role_update` to modify existing roles.
-- Role definitions are stored as YAML files in the `roles/` directory and can be edited directly.
-
-## Artifacts — Typed Outputs from Roles
-
-Artifacts are the structured outputs that roles produce. They persist across sessions and can be consumed by other roles.
-
-### When to Save Artifacts
-
-- After producing a PRD, implementation plan, test plan, or any substantial deliverable.
-- When the output should be referenced by downstream roles in a workflow.
-- When the user asks you to "save this" or "create a document".
-
-### How to Use Artifacts
-
-- `artifact_save` — save a new artifact (provide type, role, title, content) or update an existing one (provide artifact_id, new content).
-- `artifact_get` — retrieve an artifact by ID to read its content.
-- `artifact_list` — list artifacts, filterable by type, role, ticket, or workflow.
-- `artifact_search` — keyword search across artifact titles and content.
-- `artifact_history` — view version history of an artifact.
-
-## Workflows — Multi-Role Orchestration
-
-Workflows track the progression of work across multiple roles (e.g. PM → SWE → QA pipeline).
-
-### When to Use Workflows
-
-- When the user wants to develop a feature end-to-end across multiple roles.
-- When work needs to be handed off between roles with artifact references.
-
-### How to Use Workflows
-
-1. `workflow_start` — begin a named workflow, optionally linked to a Jira ticket and starting role.
-2. Activate the first role using `role_activate` with the workflow ID.
-3. Produce artifacts and save them with `artifact_save`.
-4. `workflow_handoff` — transition to the next role, passing artifact IDs and notes.
-5. Repeat steps 2-4 for each role in the pipeline.
-6. `workflow_handoff` with `to_role="complete"` to finish the workflow.
-7. `workflow_status` — check current state at any time.
-8. `workflow_list` — see all active and completed workflows.
 
 ## Configuration
 

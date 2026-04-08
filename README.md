@@ -30,23 +30,23 @@ The `.cursor/mcp.json` file is pre-configured. Fill in your PATs in the `env` se
 
 ## What's Included
 
-### Tools (63 total when all integrations enabled)
+### Tools (69 total when all integrations enabled)
 
 | Group | Count | Tools |
 |-------|-------|-------|
 | Config | 1 | `config_get` |
 | Roles | 5 | `role_list`, `role_get`, `role_activate`, `role_create`, `role_update` |
 | Artifacts | 5 | `artifact_save`, `artifact_get`, `artifact_list`, `artifact_search`, `artifact_history` |
-| Workflows | 4 | `workflow_start`, `workflow_status`, `workflow_handoff`, `workflow_list` |
+| Workflows | 8 | `workflow_start`, `workflow_status`, `workflow_handoff`, `workflow_list`, `workflow_cancel`, `workflow_template_list`, `workflow_template_get`, `workflow_start_from_template` |
 | Jira | 12 | `jira_get_my_tickets`, `jira_search`, `jira_get_ticket`, `jira_create_ticket`, `jira_update_ticket`, `jira_add_comment`, `jira_transition_ticket`, `jira_log_work`, `jira_get_sprint`, `jira_get_board`, `jira_resolve_link`, `jira_enhance_ticket` |
 | Confluence | 7 | `confluence_search`, `confluence_get_page`, `confluence_create_page`, `confluence_update_page`, `confluence_list_spaces`, `confluence_get_page_children`, `confluence_resolve_link` |
 | GitLab | 7 | `gitlab_create_mr`, `gitlab_update_mr`, `gitlab_list_mrs`, `gitlab_get_mr`, `gitlab_add_mr_comment`, `gitlab_mr_diff`, `gitlab_resolve_link` |
 | GitHub | 7 | `github_create_pr`, `github_update_pr`, `github_list_prs`, `github_get_pr`, `github_add_pr_comment`, `github_pr_diff`, `github_resolve_link` |
 | Rules | 10 | `rules_list_categories`, `rules_get_by_category`, `rules_get_by_language`, `rules_get_all`, `rules_add`, `rules_update`, `rules_remove`, `rules_search`, `rules_export`, `rules_import` |
 | Decisions | 2 | `decisions_log`, `decisions_search` |
-| Context | 3 | `context_set`, `context_get`, `context_clear` |
+| Context | 5 | `context_set`, `context_get`, `context_clear`, `session_start`, `session_end` |
 
-### Prompts (7)
+### Prompts (11)
 
 - **`ticket_to_plan`** — Assemble Jira ticket + Confluence docs + rules + decisions into an implementation plan
 - **`code_review_checklist`** — Generate a language-scoped review checklist from your rules
@@ -55,12 +55,21 @@ The `.cursor/mcp.json` file is pre-configured. Fill in your PATs in the `env` se
 - **`as_software_engineer`** — Activate the Software Engineer role with full context injection
 - **`as_qa_engineer`** — Activate the QA Engineer role with full context injection
 - **`as_technical_writer`** — Activate the Technical Writer role with full context injection
+- **`as_data_analyst`** — Activate the Data Analyst role with full context injection
+- **`as_data_scientist`** — Activate the Data Scientist role with full context injection
+- **`as_devops_sre`** — Activate the DevOps/SRE role with full context injection
+- **`as_ux_designer`** — Activate the UX Designer role with full context injection
 
 ### Resources
 
 - `resource://config` — Active configuration (secrets redacted)
 - `resource://rules/{category}` — One resource per rule category (code_style, architecture, etc.)
 - `resource://rules/decisions` — Decision log
+- `resource://roles` — List of all available roles
+- `resource://roles/{role_id}` — Full role definition (one per role)
+- `resource://artifacts` — Index of all artifacts
+- `resource://workflows` — Index of all workflows
+- `resource://workflow_templates` — List of workflow templates
 
 ## Roles Framework
 
@@ -74,6 +83,10 @@ Roles are specialized functional personas that inject expert context into the AI
 | **Software Engineer** | Implementation plans, architecture docs, code reviews, technical designs | PRDs, user stories, requirements |
 | **QA Engineer** | Test plans, test cases, bug reports, coverage analyses | PRDs, user stories, implementation plans, architecture docs |
 | **Technical Writer** | Tech docs, ADRs, runbooks, API docs, onboarding guides | PRDs, implementation plans, architecture docs, technical designs, test plans |
+| **Data Analyst** | Data analyses, SQL queries, dashboard specs, data reports | PRDs, requirements |
+| **Data Scientist** | Experiment plans, model specs, evaluation reports, feature engineering | PRDs, requirements, data analyses, data reports |
+| **DevOps / SRE** | Infra plans, CI/CD configs, runbooks, monitoring specs, incident reports | Implementation plans, architecture docs, technical designs |
+| **UX Designer** | Wireframe specs, user flows, design specs, usability reports | PRDs, user stories, requirements |
 
 ### Using Roles
 
@@ -113,6 +126,22 @@ Artifacts are versioned, typed outputs that roles produce and other roles consum
 
 Workflows track the progression of work across multiple roles, enabling end-to-end feature development.
 
+### Using Templates
+
+Start a pre-defined pipeline with a single call:
+
+```
+workflow_start_from_template("feature_development", ticket="PROJ-123")
+```
+
+Available templates:
+- **feature_development** — PM → SWE → QA → Tech Writer
+- **data_project** — PM → Data Analyst → Data Scientist → SWE → QA
+- **bug_fix** — SWE → QA
+- **documentation** — Tech Writer
+
+### Manual Workflows
+
 ```
 1. workflow_start("auth-feature",     # Start a workflow
      ticket="PROJ-123",
@@ -128,6 +157,21 @@ Workflows track the progression of work across multiple roles, enabling end-to-e
 6. workflow_handoff("wf-001",         # Complete
      to_role="complete")
 ```
+
+### Workflow Cancellation
+
+Cancel an active workflow with an optional reason:
+
+```
+workflow_cancel("wf-001", reason="Requirements changed")
+```
+
+## Session Hooks
+
+Session hooks enforce the "load memory at start, checkpoint at end" pattern:
+
+- **`session_start`** — Call as your first action. Loads context, rules, decisions, roles, and active workflows in one call. Optionally sets a current ticket.
+- **`session_end`** — Call before your final response. Returns a pre-close checklist ensuring all artifacts are saved and rules/decisions are persisted.
 
 ## Configuration
 
@@ -165,7 +209,7 @@ mcp10x/
     roles/                 # Roles framework
       schemas.py           # RoleDefinition model
       registry.py          # Role YAML loading and management
-      bundled.py           # Default role definitions
+      bundled.py           # Default role definitions (8 roles)
       tools.py             # role_list, role_get, role_activate, etc.
       prompts.py           # Dynamic per-role MCP prompts
     artifacts/             # Artifact persistence
@@ -173,15 +217,16 @@ mcp10x/
       store.py             # Versioned YAML artifact store
       tools.py             # artifact_save, artifact_get, etc.
     workflows/             # Workflow orchestration
-      engine.py            # WorkflowState, WorkflowEngine
-      tools.py             # workflow_start, workflow_handoff, etc.
+      engine.py            # WorkflowState, WorkflowEngine, templates schema
+      templates.py         # Bundled workflow templates (4 templates)
+      tools.py             # workflow_start, workflow_handoff, templates, cancel
     jira_tools.py          # Jira client + tools
     confluence_tools.py    # Confluence client + tools
     gitlab_tools.py        # GitLab client + tools
     github_tools.py        # GitHub client + tools
     rules_tools.py         # Rules store + tools
     decisions_tools.py     # Decision log + tools
-    context_tools.py       # Session context + tools
+    context_tools.py       # Session context + session_start/session_end
     prompts.py             # MCP prompt definitions
     resources.py           # MCP resource definitions
     schemas.py             # Shared Pydantic models

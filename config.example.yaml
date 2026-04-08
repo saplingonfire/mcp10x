@@ -73,6 +73,10 @@ roles:
     - software_engineer
     - qa_engineer
     - technical_writer
+    - data_analyst
+    - data_scientist
+    - devops_sre
+    - ux_designer
 
 # Artifact persistence — typed outputs from roles
 artifacts:
