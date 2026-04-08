@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mcp10x"
 version = "0.1.0"
-description = "MCP server for 10x engineering — Jira, Confluence, coding rules, decision log, and workflow prompts"
+description = "MCP server for 10x engineering — roles, artifacts, workflows, Jira, Confluence, coding rules, and decision log"
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=2.0.0",

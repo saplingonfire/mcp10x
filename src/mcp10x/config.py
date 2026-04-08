@@ -73,6 +73,29 @@ class ContextConfig:
 
 
 @dataclass
+class RolesConfig:
+    roles_dir: str = "roles"
+    default_roles: list[str] = field(
+        default_factory=lambda: [
+            "product_manager",
+            "software_engineer",
+            "qa_engineer",
+            "technical_writer",
+        ]
+    )
+
+
+@dataclass
+class ArtifactsConfig:
+    artifacts_dir: str = "artifacts"
+
+
+@dataclass
+class WorkflowsConfig:
+    workflows_dir: str = "workflows"
+
+
+@dataclass
 class AppConfig:
     jira: JiraConfig = field(default_factory=JiraConfig)
     confluence: ConfluenceConfig = field(default_factory=ConfluenceConfig)
@@ -80,6 +103,9 @@ class AppConfig:
     github: GitHubConfig = field(default_factory=GitHubConfig)
     rules: RulesConfig = field(default_factory=RulesConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
+    roles: RolesConfig = field(default_factory=RolesConfig)
+    artifacts: ArtifactsConfig = field(default_factory=ArtifactsConfig)
+    workflows: WorkflowsConfig = field(default_factory=WorkflowsConfig)
 
     _config_dir: Path = field(default_factory=lambda: Path.cwd(), repr=False)
 
@@ -93,6 +119,27 @@ class AppConfig:
     @property
     def context_file(self) -> Path:
         p = Path(self.context.file_path)
+        if not p.is_absolute():
+            p = self._config_dir / p
+        return p
+
+    @property
+    def roles_dir(self) -> Path:
+        p = Path(self.roles.roles_dir)
+        if not p.is_absolute():
+            p = self._config_dir / p
+        return p
+
+    @property
+    def artifacts_dir(self) -> Path:
+        p = Path(self.artifacts.artifacts_dir)
+        if not p.is_absolute():
+            p = self._config_dir / p
+        return p
+
+    @property
+    def workflows_dir(self) -> Path:
+        p = Path(self.workflows.workflows_dir)
         if not p.is_absolute():
             p = self._config_dir / p
         return p
@@ -138,6 +185,9 @@ def _build_config(raw: dict[str, Any], config_dir: Path) -> AppConfig:
     github_raw = raw.get("github", {})
     rules_raw = raw.get("rules", {})
     context_raw = raw.get("context", {})
+    roles_raw = raw.get("roles", {})
+    artifacts_raw = raw.get("artifacts", {})
+    workflows_raw = raw.get("workflows", {})
 
     tech_doc_raw = confluence_raw.pop("tech_doc_template", {})
     defaults = TechDocTemplate()
@@ -156,6 +206,9 @@ def _build_config(raw: dict[str, Any], config_dir: Path) -> AppConfig:
         github=GitHubConfig(**{k: v for k, v in github_raw.items() if k in GitHubConfig.__dataclass_fields__}),
         rules=RulesConfig(**{k: v for k, v in rules_raw.items() if k in RulesConfig.__dataclass_fields__}),
         context=ContextConfig(**{k: v for k, v in context_raw.items() if k in ContextConfig.__dataclass_fields__}),
+        roles=RolesConfig(**{k: v for k, v in roles_raw.items() if k in RolesConfig.__dataclass_fields__}),
+        artifacts=ArtifactsConfig(**{k: v for k, v in artifacts_raw.items() if k in ArtifactsConfig.__dataclass_fields__}),
+        workflows=WorkflowsConfig(**{k: v for k, v in workflows_raw.items() if k in WorkflowsConfig.__dataclass_fields__}),
         _config_dir=config_dir,
     )
 

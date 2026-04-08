@@ -63,3 +63,21 @@ rules:
 # Session context
 context:
   file_path: ".context.yaml"
+
+# Roles framework — specialized functional personas
+roles:
+  roles_dir: "roles"
+  # Bundled roles auto-created on first run. Remove entries to skip.
+  default_roles:
+    - product_manager
+    - software_engineer
+    - qa_engineer
+    - technical_writer
+
+# Artifact persistence — typed outputs from roles
+artifacts:
+  artifacts_dir: "artifacts"
+
+# Workflow orchestration — multi-role handoffs
+workflows:
+  workflows_dir: "workflows"

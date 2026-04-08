@@ -74,6 +74,41 @@ def build_server(cfg: AppConfig) -> FastMCP:
     context_store = ContextStore(cfg)
     register_context_tools(mcp, context_store)
 
+    # -- Artifacts --
+    from mcp10x.artifacts.store import ArtifactStore
+    from mcp10x.artifacts.tools import register_artifact_tools
+
+    artifact_store = ArtifactStore(cfg.artifacts_dir)
+    register_artifact_tools(mcp, artifact_store)
+
+    # -- Workflows --
+    from mcp10x.workflows.engine import WorkflowEngine
+    from mcp10x.workflows.tools import register_workflow_tools
+
+    workflow_engine = WorkflowEngine(cfg.workflows_dir)
+    register_workflow_tools(mcp, workflow_engine)
+
+    # -- Roles --
+    from mcp10x.roles.registry import RoleRegistry
+    from mcp10x.roles.tools import register_role_tools
+    from mcp10x.roles.prompts import register_role_prompts
+
+    role_registry = RoleRegistry(cfg.roles_dir, default_roles=cfg.roles.default_roles)
+    register_role_tools(
+        mcp,
+        role_registry,
+        rules_store=rules_store,
+        artifact_store=artifact_store,
+        workflow_engine=workflow_engine,
+    )
+    register_role_prompts(
+        mcp,
+        role_registry,
+        rules_store=rules_store,
+        artifact_store=artifact_store,
+        workflow_engine=workflow_engine,
+    )
+
     # -- Prompts --
     from mcp10x.prompts import register_prompts
 
