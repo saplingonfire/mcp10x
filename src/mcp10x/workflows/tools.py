@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from mcp10x.workflows.engine import WorkflowEngine
+from mcp10x.workflows.templates import BUNDLED_TEMPLATES
 
 
 def register_workflow_tools(mcp: Any, engine: WorkflowEngine) -> None:
@@ -43,3 +44,63 @@ def register_workflow_tools(mcp: Any, engine: WorkflowEngine) -> None:
     def workflow_list(status: str | None = None) -> str:
         """List all workflows, optionally filtered by status (active, completed, cancelled)."""
         return engine.list_workflows(status=status)
+
+    @mcp.tool()
+    def workflow_cancel(workflow_id: str, reason: str = "") -> str:
+        """Cancel an active workflow. Optionally provide a reason."""
+        return engine.cancel(workflow_id=workflow_id, reason=reason)
+
+    @mcp.tool()
+    def workflow_template_list() -> str:
+        """List all available workflow templates with their descriptions."""
+        if not BUNDLED_TEMPLATES:
+            return "No workflow templates available."
+        lines = ["# Workflow Templates", ""]
+        for tmpl in BUNDLED_TEMPLATES.values():
+            step_roles = " -> ".join(s.role for s in tmpl.steps)
+            lines.append(f"- **{tmpl.id}**: {tmpl.name} — {tmpl.description}")
+            lines.append(f"  Pipeline: {step_roles}")
+        return "\n".join(lines)
+
+    @mcp.tool()
+    def workflow_template_get(template_id: str) -> str:
+        """Get the full step sequence of a workflow template including expected artifacts per step."""
+        tmpl = BUNDLED_TEMPLATES.get(template_id)
+        if not tmpl:
+            available = ", ".join(BUNDLED_TEMPLATES.keys())
+            return f"Template '{template_id}' not found. Available: {available}"
+        lines = [
+            f"# Template: {tmpl.name}",
+            "",
+            f"**ID:** {tmpl.id}",
+            f"**Description:** {tmpl.description}",
+            "",
+            "## Steps",
+            "",
+        ]
+        for i, step in enumerate(tmpl.steps, 1):
+            artifacts = ", ".join(step.expected_artifacts) if step.expected_artifacts else "(none)"
+            lines.append(f"{i}. **{step.role}** — {step.description}")
+            lines.append(f"   Expected artifacts: {artifacts}")
+        return "\n".join(lines)
+
+    @mcp.tool()
+    def workflow_start_from_template(
+        template_id: str,
+        name: str = "",
+        ticket: str | None = None,
+    ) -> str:
+        """Start a workflow from a predefined template. The first role in the template pipeline is automatically activated."""
+        tmpl = BUNDLED_TEMPLATES.get(template_id)
+        if not tmpl:
+            available = ", ".join(BUNDLED_TEMPLATES.keys())
+            return f"Template '{template_id}' not found. Available: {available}"
+        wf_name = name or tmpl.name
+        first_role = tmpl.steps[0].role if tmpl.steps else None
+        return engine.start(
+            name=wf_name,
+            ticket=ticket,
+            first_role=first_role,
+            template_id=tmpl.id,
+            planned_steps=tmpl.steps,
+        )

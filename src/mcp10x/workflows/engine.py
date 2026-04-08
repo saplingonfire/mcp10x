@@ -10,6 +10,26 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 
+class WorkflowTemplateStep(BaseModel):
+    """A planned step within a workflow template."""
+
+    role: str = Field(description="Role ID for this step")
+    description: str = Field(description="What this step should accomplish")
+    expected_artifacts: list[str] = Field(
+        default_factory=list,
+        description="Artifact types this step should produce",
+    )
+
+
+class WorkflowTemplate(BaseModel):
+    """Reusable multi-role pipeline definition."""
+
+    id: str = Field(description="Unique template ID")
+    name: str = Field(description="Human-readable name")
+    description: str = Field(description="What this workflow template is for")
+    steps: list[WorkflowTemplateStep] = Field(default_factory=list)
+
+
 class WorkflowStep(BaseModel):
     """A single step in a workflow, corresponding to one role's work."""
 
@@ -30,6 +50,13 @@ class WorkflowState(BaseModel):
     created_at: str = Field(description="ISO timestamp")
     current_role: str | None = Field(default=None, description="Currently active role ID")
     steps: list[WorkflowStep] = Field(default_factory=list)
+    template_id: str | None = Field(
+        default=None, description="ID of the template this workflow was created from"
+    )
+    planned_steps: list[WorkflowTemplateStep] = Field(
+        default_factory=list,
+        description="Full planned pipeline from the template (for progress tracking)",
+    )
 
 
 class WorkflowEngine:
@@ -44,6 +71,8 @@ class WorkflowEngine:
         name: str,
         ticket: str | None = None,
         first_role: str | None = None,
+        template_id: str | None = None,
+        planned_steps: list[WorkflowTemplateStep] | None = None,
     ) -> str:
         wf_id = self._next_id()
         now = datetime.now(timezone.utc).isoformat()
@@ -58,10 +87,13 @@ class WorkflowEngine:
             created_at=now,
             current_role=first_role,
             steps=steps,
+            template_id=template_id,
+            planned_steps=planned_steps or [],
         )
         self._save(state)
         role_info = f", starting with role **{first_role}**" if first_role else ""
-        return f"Started workflow **{wf_id}**: {name}{role_info}"
+        tmpl_info = f" (template: {template_id})" if template_id else ""
+        return f"Started workflow **{wf_id}**: {name}{role_info}{tmpl_info}"
 
     def status(self, workflow_id: str) -> str:
         state = self._load(workflow_id)
@@ -73,10 +105,26 @@ class WorkflowEngine:
             f"**Status:** {state.status}",
             f"**Created:** {state.created_at}",
         ]
+        if state.template_id:
+            lines.append(f"**Template:** {state.template_id}")
         if state.ticket:
             lines.append(f"**Ticket:** {state.ticket}")
         if state.current_role:
             lines.append(f"**Current role:** {state.current_role}")
+
+        if state.planned_steps:
+            completed_roles = {s.role for s in state.steps if s.completed_at}
+            active_role = state.current_role
+            lines.extend(["", "## Pipeline", ""])
+            for i, ps in enumerate(state.planned_steps, 1):
+                if ps.role in completed_roles:
+                    icon = "done"
+                elif ps.role == active_role:
+                    icon = "active"
+                else:
+                    icon = "pending"
+                expected = f" -> {', '.join(ps.expected_artifacts)}" if ps.expected_artifacts else ""
+                lines.append(f"{i}. **{ps.role}** [{icon}] {ps.description}{expected}")
 
         if state.steps:
             lines.extend(["", "## Steps", ""])
@@ -122,7 +170,10 @@ class WorkflowEngine:
         state.current_role = to_role
         self._save(state)
         return (
-            f"Handed off workflow **{workflow_id}** to role **{to_role}**."
+            f"Handed off workflow **{workflow_id}** to role **{to_role}**.\n\n"
+            f"Reminder: Ensure all artifacts from the previous step are saved "
+            f"(artifact_save) and any new rules/decisions have been persisted "
+            f"(rules_add / decisions_log)."
         )
 
     def list_workflows(self, status: str | None = None) -> str:
@@ -141,6 +192,30 @@ class WorkflowEngine:
                 f"— {len(w.steps)} step(s)"
             )
         return "\n".join(lines)
+
+    def cancel(self, workflow_id: str, reason: str = "") -> str:
+        state = self._load(workflow_id)
+        if not state:
+            return f"Workflow '{workflow_id}' not found."
+        if state.status != "active":
+            return f"Workflow '{workflow_id}' is already {state.status}."
+
+        now = datetime.now(timezone.utc).isoformat()
+        if state.steps:
+            current_step = state.steps[-1]
+            if not current_step.completed_at:
+                current_step.completed_at = now
+                if reason:
+                    current_step.notes = (
+                        f"{current_step.notes}; cancelled: {reason}"
+                        if current_step.notes
+                        else f"cancelled: {reason}"
+                    )
+        state.status = "cancelled"
+        state.current_role = None
+        self._save(state)
+        reason_info = f" Reason: {reason}" if reason else ""
+        return f"Workflow **{workflow_id}** cancelled.{reason_info}"
 
     def get_workflow_state(self, workflow_id: str) -> WorkflowState | None:
         """Return raw workflow state (used by role activation)."""
