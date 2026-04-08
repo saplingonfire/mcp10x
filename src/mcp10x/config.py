@@ -81,6 +81,10 @@ class RolesConfig:
             "software_engineer",
             "qa_engineer",
             "technical_writer",
+            "data_analyst",
+            "data_scientist",
+            "devops_sre",
+            "ux_designer",
         ]
     )
 
