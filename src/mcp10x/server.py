@@ -68,12 +68,6 @@ def build_server(cfg: AppConfig) -> FastMCP:
     decisions_store = DecisionStore(cfg)
     register_decisions_tools(mcp, decisions_store)
 
-    # -- Session Context --
-    from mcp10x.context_tools import ContextStore, register_context_tools
-
-    context_store = ContextStore(cfg)
-    register_context_tools(mcp, context_store)
-
     # -- Artifacts --
     from mcp10x.artifacts.store import ArtifactStore
     from mcp10x.artifacts.tools import register_artifact_tools
@@ -109,6 +103,19 @@ def build_server(cfg: AppConfig) -> FastMCP:
         workflow_engine=workflow_engine,
     )
 
+    # -- Session Context (registered after roles/workflows so it can reference them) --
+    from mcp10x.context_tools import ContextStore, register_context_tools
+
+    context_store = ContextStore(cfg)
+    register_context_tools(
+        mcp,
+        context_store,
+        rules_store=rules_store,
+        decisions_store=decisions_store,
+        role_registry=role_registry,
+        workflow_engine=workflow_engine,
+    )
+
     # -- Prompts --
     from mcp10x.prompts import register_prompts
 
@@ -129,6 +136,9 @@ def build_server(cfg: AppConfig) -> FastMCP:
         cfg,
         rules_store=rules_store,
         decisions_store=decisions_store,
+        role_registry=role_registry,
+        artifact_store=artifact_store,
+        workflow_engine=workflow_engine,
     )
 
     return mcp
